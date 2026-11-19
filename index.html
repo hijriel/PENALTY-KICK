@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Penalty Kick</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #1a1a1a;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 600px;
+            background-color: #2c3e50;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+
+        .scoreboard {
+            background-color: #34495e;
+            padding: 15px;
+            display: flex;
+            justify-content: space-around;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-bottom: 2px solid #1abc9c;
+        }
+
+        /* Lapangan & Gawang */
+        .pitch {
+            position: relative;
+            height: 320px;
+            background: linear-gradient(to bottom, #27ae60 0%, #2ecc71 100%);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+        }
+
+        /* Tiang Gawang */
+        .goal {
+            position: absolute;
+            top: 30px;
+            width: 280px;
+            height: 120px;
+            border: 8px solid #fff;
+            border-bottom: none;
+            background-color: rgba(255, 255, 255, 0.1);
+            background-image: 
+                linear-gradient(0deg, rgba(255,255,255,0.3) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px);
+            background-size: 15px 15px;
+        }
+
+        /* Kiper */
+        .goalkeeper {
+            position: absolute;
+            top: 100px;
+            width: 45px;
+            height: 45px;
+            background-color: #e74c3c;
+            border-radius: 50%;
+            border: 3px solid #fff;
+            transition: all 0.4s ease-out;
+            z-index: 2;
+        }
+
+        /* Bola */
+        .ball {
+            position: absolute;
+            bottom: 30px;
+            width: 35px;
+            height: 35px;
+            background-color: #fff;
+            border-radius: 50%;
+            border: 3px solid #000;
+            transition: all 0.5s ease-out;
+            z-index: 3;
+        }
+
+        .status-message {
+            padding: 15px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            min-height: 60px;
+            color: #f1c40f;
+        }
+
+        /* Kontrol Arah Tendangan */
+        .controls {
+            padding: 20px;
+            background-color: #34495e;
+        }
+
+        .controls p {
+            margin-bottom: 12px;
+            color: #ecf0f1;
+        }
+
+        .btn-group {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #fff;
+            background-color: #1abc9c;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn:hover {
+            background-color: #16a085;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn:disabled {
+            background-color: #7f8c8d;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <!-- Papan Skor -->
+        <div class="scoreboard">
+            <div>SKOR: <span id="score">0</span></div>
+            <div>TENDANGAN: <span id="attempts">0</span> / 5</div>
+        </div>
+
+        <!-- Lapangan Permainan -->
+        <div class="pitch">
+            <div class="goal"></div>
+            <div class="goalkeeper" id="keeper"></div>
+            <div class="ball" id="ball"></div>
+        </div>
+
+        <!-- Pesan Hasil -->
+        <div class="status-message" id="message">Pilih arah tendangan kamu!</div>
+
+        <!-- Tombol Kontrol -->
+        <div class="controls">
+            <p>Pilih Arah Tendangan Penalty:</p>
+            <div class="btn-group">
+                <button class="btn" onclick="shoot('left')">KIRI</button>
+                <button class="btn" onclick="shoot('center')">TENGAH</button>
+                <button class="btn" onclick="shoot('right')">KANAN</button>
+            </div>
+            <button class="btn" id="reset-btn" onclick="resetGame()" style="display: none; margin-top: 15px; background-color: #e67e22;">Main Lagi</button>
+        </div>
+    </div>
+
+    <script>
+        let score = 0;
+        let attempts = 0;
+        const maxAttempts = 5;
+        let isShooting = false;
+
+        const ball = document.getElementById('ball');
+        const keeper = document.getElementById('keeper');
+        const scoreElem = document.getElementById('score');
+        const attemptsElem = document.getElementById('attempts');
+        const messageElem = document.getElementById('message');
+        const buttons = document.querySelectorAll('.btn-group .btn');
+        const resetBtn = document.getElementById('reset-btn');
+
+        // Posisi Koordinat (X)
+        const positions = {
+            left: -80,
+            center: 0,
+            right: 80
+        };
+
+        function shoot(direction) {
+            if (isShooting || attempts >= maxAttempts) return;
+            
+            isShooting = true;
+            attempts++;
+            attemptsElem.textContent = attempts;
+            disableButtons(true);
+
+            // Arah lompatan kiper secara acak (kiri, tengah, kanan)
+            const directions = ['left', 'center', 'right'];
+            const keeperDirection = directions[Math.floor(Math.random() * directions.length)];
+
+            // Animasi Gerakan Kiper & Bola
+            ball.style.transform = `translate(${positions[direction]}px, -180px) scale(0.6)`;
+            keeper.style.transform = `translateX(${positions[keeperDirection]}px)`;
+
+            // Evaluasi Hasil
+            setTimeout(() => {
+                if (direction === keeperDirection) {
+                    messageElem.textContent = "❌ TERTANGKAP! Kiper menepis bola.";
+                    messageElem.style.color = "#e74c3c";
+                } else {
+                    score++;
+                    scoreElem.textContent = score;
+                    messageElem.textContent = "⚽ GOOOOLLLL!!";
+                    messageElem.style.color = "#2ecc71";
+                }
+
+                // Reset posisi bola dan kiper setelah delay
+                setTimeout(() => {
+                    if (attempts < maxAttempts) {
+                        resetPositions();
+                        isShooting = false;
+                        disableButtons(false);
+                        messageElem.textContent = "Pilih arah tendangan kamu!";
+                        messageElem.style.color = "#f1c40f";
+                    } else {
+                        endGame();
+                    }
+                }, 1200);
+
+            }, 500);
+        }
+
+        function resetPositions() {
+            ball.style.transform = 'translate(0, 0) scale(1)';
+            keeper.style.transform = 'translateX(0)';
+        }
+
+        function disableButtons(disabled) {
+            buttons.forEach(btn => btn.disabled = disabled);
+        }
+
+        function endGame() {
+            resetPositions();
+            let finalMessage = "";
+            if (score >= 4) {
+                finalMessage = `🏆 Luar Biasa! Kamu mencetak ${score} gol!`;
+            } else if (score >= 2) {
+                finalMessage = `👍 Cukup Bagus! Kamu mencetak ${score} gol.`;
+            } else {
+                finalMessage = `😅 Perlu Latihan Lagi! Kamu mencetak ${score} gol.`;
+            }
+            
+            messageElem.textContent = `Permainan Selesai! ${finalMessage}`;
+            messageElem.style.color = "#3498db";
+            resetBtn.style.display = "inline-block";
+        }
+
+        function resetGame() {
+            score = 0;
+            attempts = 0;
+            isShooting = false;
+            scoreElem.textContent = score;
+            attemptsElem.textContent = attempts;
+            messageElem.textContent = "Pilih arah tendangan kamu!";
+            messageElem.style.color = "#f1c40f";
+            resetBtn.style.display = "none";
+            disableButtons(false);
+            resetPositions();
+        }
+    </script>
+</body>
+</html>
